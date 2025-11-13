@@ -1,0 +1,10 @@
+release/lightray.o
+release/main.o
+release/mainwindow.o
+release/mirrorroom.o
+release/wall.o
+release/walldialog.o
+release/qrc_qmake_qmake_qm_files.o
+release/moc_mainwindow.o
+release/moc_mirrorroom.o
+release/moc_walldialog.o
