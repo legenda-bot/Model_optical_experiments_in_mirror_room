@@ -12,7 +12,7 @@ public:
     Ray(const Point& vertex, const Vector& direction);
     Ray() = default;
 
-    bool IsPointIn(const Point& point) const;
+    bool IsPointIn(const Point& point) const; // we count the apex of the beam does not belong to the beam
     Point GetVertex() const;
     Vector GetDirection() const;
     Point FirstOnRay(const Point& first_point, const Point& second_point) const;

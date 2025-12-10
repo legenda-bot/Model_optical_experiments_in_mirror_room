@@ -21,6 +21,9 @@ Ray::Ray(const Point& vertex, const Vector& direction)
 
 bool Ray::IsPointIn(const Point& point) const {
     // Вектор от вершины до точки
+    if (point == vertex_) {
+        return false;
+    }
     Vector to_point = point - vertex_;
 
     // Проверяем коллинеарность и что точка лежит в направлении луча
@@ -63,7 +66,7 @@ Line Ray::ToLine() const {
     return Line(vertex_, direction_);
 }
 
-Ray Shoot(const Ray& trajectory, const Line& wall) { // it is actualy main function in all project
+Ray Shoot(const Ray& trajectory, const Line& wall) { // it is actually main function in all project
 
     Vector reflecting = wall.GetDirection();
     Vector bullet = trajectory.GetDirection();
