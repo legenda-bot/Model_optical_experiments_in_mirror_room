@@ -182,8 +182,8 @@ const Wall* LightRay::findNextWall(const QPointF& currentPoint, double currentAn
             continue;
         }
 
-        const bool useSphericalArc = (wall->mirrorType() == Wall::Spherical && wall->sphericalType() == Wall::Concave);
-        if (useSphericalArc) {
+        // Сферическая стена отражает только по дуге (как она отрисована), хорда не участвует.
+        if (wall->mirrorType() == Wall::Spherical) {
             SphericalGeom g;
             if (!computeSphericalGeom(wall, g)) {
                 continue;
@@ -309,10 +309,8 @@ QPointF LightRay::calculateReflection(const QPointF& currentPoint, double curren
     QPointF dir(std::cos(currentAngle), std::sin(currentAngle));
     QPointF normal(-dy / len, dx / len);
 
-    // Согласуем с отрисовкой:
-    // - Concave: дуга обращена внутрь комнаты -> отражаем от дуги
-    // - Convex: дуга снаружи комнаты, внутренняя граница — хорда -> отражаем как от плоской стены
-    if (wall->mirrorType() == Wall::Spherical && wall->sphericalType() == Wall::Concave) {
+    // Согласуем с отрисовкой: сферическая стена отражает только по дуге.
+    if (wall->mirrorType() == Wall::Spherical) {
         SphericalGeom g;
         if (computeSphericalGeom(wall, g)) {
             QPointF nVec = currentPoint - g.center;
