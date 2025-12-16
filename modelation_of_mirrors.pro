@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 QT       += core gui
 
 greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
@@ -15,14 +14,36 @@ SOURCES += \
     mainwindow.cpp \
     mirrorroom.cpp \
     wall.cpp \
-    walldialog.cpp
+    walldialog.cpp \
+    Arc.cpp \
+    Circle.cpp \
+    Intersections.cpp \
+    Line.cpp \
+    Point.cpp \
+    Ray.cpp \
+    Segment.cpp \
+    Vector.cpp \
+    backend/BackendWall.cpp \
+    backend/BackendPolygon.cpp \
+    backend/ExperimentDatabase.cpp
 
 HEADERS += \
     lightray.h \
     mainwindow.h \
     mirrorroom.h \
     wall.h \
-    walldialog.h
+    walldialog.h \
+    Arc.h \
+    Circle.h \
+    Intersections.h \
+    Line.h \
+    Point.h \
+    Ray.h \
+    Segment.h \
+    Vector.h \
+    backend/BackendWall.h \
+    backend/BackendPolygon.h \
+    backend/ExperimentDatabase.h
 
 FORMS += \
     mainwindow.ui
@@ -36,42 +57,3 @@ CONFIG += embed_translations
 qnx: target.path = /tmp/$${TARGET}/bin
 else: unix:!android: target.path = /opt/$${TARGET}/bin
 !isEmpty(target.path): INSTALLS += target
-=======
-QT       += core gui
-
-greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
-
-CONFIG += c++17
-
-# You can make your code fail to compile if it uses deprecated APIs.
-# In order to do so, uncomment the following line.
-#DEFINES += QT_DISABLE_DEPRECATED_BEFORE=0x060000    # disables all the APIs deprecated before Qt 6.0.0
-
-SOURCES += \
-    lightray.cpp \
-    main.cpp \
-    mainwindow.cpp \
-    mirrorroom.cpp \
-    wall.cpp \
-    walldialog.cpp
-
-HEADERS += \
-    lightray.h \
-    mainwindow.h \
-    mirrorroom.h \
-    wall.h \
-    walldialog.h
-
-FORMS += \
-    mainwindow.ui
-
-TRANSLATIONS += \
-    modelation_of_mirrors_ru_RU.ts
-CONFIG += lrelease
-CONFIG += embed_translations
-
-# Default rules for deployment.
-qnx: target.path = /tmp/$${TARGET}/bin
-else: unix:!android: target.path = /opt/$${TARGET}/bin
-!isEmpty(target.path): INSTALLS += target
->>>>>>> dbcaaaab8187a40d6d56fbc2b69f275e8cfb3978

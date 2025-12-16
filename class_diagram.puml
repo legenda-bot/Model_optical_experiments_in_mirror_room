@@ -1,0 +1,92 @@
+@startuml
+"Point" <<data>> {
+  - long double x_
+  - long double y_
+}
+
+"Vector" {
+  - long double x_
+  - long double y_
+  + Length()
+  + SquaredLength()
+  + GetNormal()
+}
+
+"Line" {
+  - Point point_
+  - Vector direction_
+  + GetDirection()
+}
+
+"Segment" {
+  - Point start_point_
+  - Vector direction_vector_
+}
+
+"Ray" {
+  - Point vertex_
+  - Vector direction_
+}
+
+"Circle" {
+  - Point center_
+  - long double radius_
+}
+
+"Arc" {
+  - Point start_point_
+  - Point middle_point_
+  - Point end_point_
+  - Circle circle_
+}
+
+class Wall {
+  - QLineF m_line
+  - MirrorType m_mirrorType
+  - double m_radius
+  + containsPoint()
+  + draw()
+}
+
+class LightRay {
+  - QPointF m_startPoint
+  - double m_startAngle
+  - QVector<Wall*> m_walls
+  - QVector<QPointF> m_path
+  + calculatePath()
+  + draw()
+}
+
+class MirrorRoom {
+  - QVector<Wall*> m_walls
+  - LightRay* m_currentRay
+  + startRayExperiment()
+}
+
+class WallDialog {
+  - Wall* m_wall
+}
+
+class MainWindow {
+  - MirrorRoom* m_mirrorRoom
+  - WallDialog* m_wallDialog
+}
+
+'Relationships'
+Vector --> Point : constructs from
+Line --> Point : has
+Line --> Vector : has
+Segment --> Point : start/end
+Segment --> Vector : direction
+Ray --> Point : vertex
+Ray --> Vector : direction
+Circle --> Point : center
+Arc --> Circle : belongs to
+MirrorRoom *-- Wall : contains
+MirrorRoom o-- LightRay : uses
+MainWindow --> MirrorRoom : controls
+MainWindow --> WallDialog : opens
+WallDialog --> Wall : edits
+LightRay --> Wall : references
+
+@enduml

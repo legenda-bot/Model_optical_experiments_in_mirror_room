@@ -1,0 +1,28 @@
+# Qt / qmake / QtCreator
+*.pro.user
+.qmake.stash
+Makefile*
+
+# Build outputs
+debug/
+release/
+*.o
+*.obj
+*.a
+*.dll
+*.exe
+*.pdb
+
+# Generated Qt files
+ui_*.h
+moc_*.cpp
+moc_*.h
+qrc_*.cpp
+*.qrc
+*.qm
+
+# Logs
+*.log
+
+# Not part of the build (historical/backup)
+backend_first_commit/
