@@ -1,4 +1,6 @@
-﻿#include "Segment.h"
+﻿// Segment: line segment geometry helper.
+
+#include "Segment.h"
 #include <cmath>
 
 Segment::Segment(const Point& start_point, const Point& end_point)

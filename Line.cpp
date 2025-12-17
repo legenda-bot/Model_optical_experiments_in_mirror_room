@@ -1,4 +1,6 @@
-﻿#include "Line.h"
+﻿// Line: 2D line utility helpers.
+
+#include "Line.h"
 
 Line::Line(const Point& first_point, const Point& second_point)
     : point_(first_point),

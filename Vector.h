@@ -1,4 +1,6 @@
-﻿#pragma once
+﻿// Vector: 2D vector type with common operations.
+
+#pragma once
 #ifndef VECTOR_H
 #define VECTOR_H
 

@@ -1,5 +1,8 @@
+// MainWindow: Qt UI wiring for room setup and ray tracing controls.
+
 #include "mainwindow.h"
 #include <QFileDialog>
+#include <QFileInfo>
 #include <QMessageBox>
 #include <QStatusBar>
 #include <QSlider>
@@ -70,6 +73,7 @@ void MainWindow::setupFileOperationsGroup()
 
 void MainWindow::onSimulationStateChanged(bool running)
 {
+    m_simulationRunning = running;
     bool enabled = !running;
     m_roomCreationCombo->setEnabled(enabled);
     m_wallsCountSpin->setEnabled(enabled);
@@ -80,6 +84,12 @@ void MainWindow::onSimulationStateChanged(bool running)
     m_angleSpin->setEnabled(enabled);
     m_speedSlider->setEnabled(enabled);
     // Clear buttons remain enabled so user can stop/reset
+    if (m_wallDialog) {
+        m_wallDialog->setEditingEnabled(enabled);
+        if (running) {
+            statusBar()->showMessage("Simulation running: wall editing is disabled");
+        }
+    }
 }
 QGroupBox* MainWindow::createRoomCreationGroup()
 {
@@ -238,6 +248,10 @@ void MainWindow::onStartExperimentClicked()
 
 void MainWindow::onWallSelected(int wallIndex)
 {
+    if (m_simulationRunning) {
+        statusBar()->showMessage("Simulation running: wall editing is disabled");
+        return;
+    }
     m_currentWallIndex = wallIndex;
 
     // Get the wall from mirror room
@@ -273,8 +287,9 @@ void MainWindow::onWallConfigurationChanged()
 
 void MainWindow::onSaveExperimentClicked()
 {
-    QString filename = QFileDialog::getSaveFileName(this, "Save Experiment", "", "Mirror Room Files (*.mrf)");
+    QString filename = QFileDialog::getSaveFileName(this, "Save Experiment", "", "Text Files (*.txt)");
     if (!filename.isEmpty()) {
+        if (QFileInfo(filename).suffix().isEmpty()) filename += ".txt";
         m_mirrorRoom->saveExperiment(filename);
         statusBar()->showMessage("Experiment saved to: " + filename);
     }
@@ -282,7 +297,7 @@ void MainWindow::onSaveExperimentClicked()
 
 void MainWindow::onLoadExperimentClicked()
 {
-    QString filename = QFileDialog::getOpenFileName(this, "Load Experiment", "", "Mirror Room Files (*.mrf)");
+    QString filename = QFileDialog::getOpenFileName(this, "Load Experiment", "", "Text Files (*.txt)");
     if (!filename.isEmpty()) {
         m_mirrorRoom->loadExperiment(filename);
         statusBar()->showMessage("Experiment loaded from: " + filename);

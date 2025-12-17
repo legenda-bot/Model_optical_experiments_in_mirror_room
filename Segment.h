@@ -1,4 +1,6 @@
-﻿#pragma once
+﻿// Segment: segment representation and helper operations.
+
+#pragma once
 #ifndef SEGMENT_H
 #define SEGMENT_H
 

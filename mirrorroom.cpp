@@ -1,3 +1,5 @@
+// MirrorRoom: scene model (walls/mirrors) and interaction logic.
+
 #include "mirrorroom.h"
 #include <QPainter>
 #include <QPainterPath>
@@ -6,16 +8,80 @@
 #include <QMessageBox>
 #include <QTransform>
 #include <QFile>
+#include <QFileInfo>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QJsonArray>
 #include <QKeyEvent>
 #include <QCursor>
+#include <QLocale>
+#include <QRegularExpression>
+#include <QStringConverter>
+#include <QTextStream>
 
 namespace {
 constexpr double kZoomStep = 1.1;
 constexpr double kMinZoom = 0.25;
 constexpr double kMaxZoom = 6.0;
+
+QString mirrorTypeToString(Wall::MirrorType type)
+{
+    switch (type) {
+    case Wall::Flat: return "Flat";
+    case Wall::Spherical: return "Spherical";
+    }
+    return "Flat";
+}
+
+QString sphericalTypeToString(Wall::SphericalType type)
+{
+    switch (type) {
+    case Wall::Concave: return "Concave";
+    case Wall::Convex: return "Convex";
+    }
+    return "Concave";
+}
+
+bool mirrorTypeFromString(const QString& s, Wall::MirrorType& out)
+{
+    const QString v = s.trimmed().toLower();
+    if (v == "flat") { out = Wall::Flat; return true; }
+    if (v == "spherical") { out = Wall::Spherical; return true; }
+    return false;
+}
+
+bool sphericalTypeFromString(const QString& s, Wall::SphericalType& out)
+{
+    const QString v = s.trimmed().toLower();
+    if (v == "concave") { out = Wall::Concave; return true; }
+    if (v == "convex") { out = Wall::Convex; return true; }
+    return false;
+}
+
+QPointF computeCentroid(const QVector<QPointF>& polygon)
+{
+    QPointF centroid(0, 0);
+    if (polygon.size() < 3) return centroid;
+
+    double signedArea = 0.0;
+    for (int i = 0; i < polygon.size(); ++i) {
+        const QPointF& p0 = polygon[i];
+        const QPointF& p1 = polygon[(i + 1) % polygon.size()];
+        const double a = p0.x() * p1.y() - p1.x() * p0.y();
+        signedArea += a;
+        centroid += QPointF((p0.x() + p1.x()) * a, (p0.y() + p1.y()) * a);
+    }
+
+    if (std::abs(signedArea) > 1e-9) {
+        centroid /= (3.0 * signedArea);
+        return centroid;
+    }
+
+    centroid = QPointF(0, 0);
+    for (const auto& p : polygon) centroid += p;
+    centroid /= polygon.size();
+    return centroid;
+}
 }
 
 MirrorRoom::MirrorRoom(QWidget *parent)
@@ -611,14 +677,246 @@ bool MirrorRoom::isConvexPolygon(const QVector<QPointF>& points) const
 
 void MirrorRoom::saveExperiment(const QString& filename)
 {
-    // TODO: Implement save functionality
-    Q_UNUSED(filename);
+    QString outName = filename.trimmed();
+    if (outName.isEmpty()) return;
+    if (QFileInfo(outName).suffix().isEmpty()) outName += ".txt";
+
+    QFile file(outName);
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Text)) {
+        QMessageBox::warning(this, "Save Experiment", "Failed to open file for writing:\n" + outName);
+        return;
+    }
+
+    QTextStream out(&file);
+    out.setEncoding(QStringConverter::Utf8);
+    const QLocale c = QLocale::c();
+
+    out << "# MirrorRoomExperiment v1\n";
+    out << "creationMode=" << ((m_creationMode == RegularPolygon) ? "RegularPolygon" : "DrawByClick") << "\n";
+    out << "roomCompleted=" << (m_roomCompleted ? 1 : 0) << "\n";
+    out << "regularWallsCount=" << m_regularWallsCount << "\n";
+    out << "regularPolygonScale=" << m_regularPolygonScale << "\n";
+    out << "animationIntervalMs=" << m_animationIntervalMs << "\n";
+    out << "rayLifetimeMs=" << m_rayLifetimeMs << "\n";
+    out << "rayStart=" << (m_rayStartPoint.isNull() ? 0 : 1) << " "
+        << c.toString(m_rayStartPoint.x(), 'g', 17) << " " << c.toString(m_rayStartPoint.y(), 'g', 17) << "\n";
+    out << "currentAngleDeg=" << c.toString(m_currentAngle, 'g', 17) << "\n";
+    out << "zoomFactor=" << c.toString(m_zoomFactor, 'g', 17) << "\n";
+    out << "cameraCenter=" << c.toString(m_cameraCenter.x(), 'g', 17) << " " << c.toString(m_cameraCenter.y(), 'g', 17) << "\n";
+    out << "wallsCount=" << m_walls.size() << "\n";
+
+    for (int i = 0; i < m_walls.size(); ++i) {
+        const Wall* w = m_walls[i];
+        const QLineF ln = w->line();
+        out << "wall "
+            << c.toString(ln.p1().x(), 'g', 17) << " " << c.toString(ln.p1().y(), 'g', 17) << " "
+            << c.toString(ln.p2().x(), 'g', 17) << " " << c.toString(ln.p2().y(), 'g', 17) << " "
+            << mirrorTypeToString(w->mirrorType()) << " "
+            << sphericalTypeToString(w->sphericalType()) << " "
+            << c.toString(w->radius(), 'g', 17);
+        if (w->hasRoomCenter()) {
+            out << " 1 " << c.toString(w->roomCenter().x(), 'g', 17) << " " << c.toString(w->roomCenter().y(), 'g', 17);
+        } else {
+            out << " 0 0 0";
+        }
+        out << "\n";
+    }
 }
 
 void MirrorRoom::loadExperiment(const QString& filename)
 {
-    // TODO: Implement load functionality
-    Q_UNUSED(filename);
+    QString inName = filename.trimmed();
+    if (inName.isEmpty()) return;
+
+    QFile file(inName);
+    if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
+        QMessageBox::warning(this, "Load Experiment", "Failed to open file for reading:\n" + inName);
+        return;
+    }
+
+    struct WallData {
+        QPointF p1;
+        QPointF p2;
+        Wall::MirrorType mirrorType {Wall::Flat};
+        Wall::SphericalType sphericalType {Wall::Concave};
+        double radius {0.0};
+        bool hasRoomCenter {false};
+        QPointF roomCenter;
+    };
+
+    RoomCreationMode loadedMode = DrawByClick;
+    bool loadedRoomCompleted = false;
+    bool loadedRoomCompletedSpecified = false;
+    int loadedRegularWallsCount = m_regularWallsCount;
+    int loadedRegularPolygonScale = m_regularPolygonScale;
+    int loadedAnimationIntervalMs = m_animationIntervalMs;
+    int loadedRayLifetimeMs = m_rayLifetimeMs;
+    bool loadedHasRayStart = false;
+    QPointF loadedRayStart;
+    double loadedAngleDeg = m_currentAngle;
+    double loadedZoom = m_zoomFactor;
+    QPointF loadedCameraCenter = m_cameraCenter;
+    QVector<WallData> wallData;
+
+    const QLocale c = QLocale::c();
+
+    QTextStream in(&file);
+    in.setEncoding(QStringConverter::Utf8);
+    while (!in.atEnd()) {
+        QString line = in.readLine().trimmed();
+        if (line.isEmpty()) continue;
+        if (line.startsWith('#') || line.startsWith(';')) continue;
+
+        if (line.startsWith("wall ")) {
+            const QStringList t = line.split(QRegularExpression("\\s+"), Qt::SkipEmptyParts);
+            if (t.size() < 8) continue;
+
+            bool ok1 = false, ok2 = false, ok3 = false, ok4 = false, okR = false;
+            const double x1 = c.toDouble(t[1], &ok1);
+            const double y1 = c.toDouble(t[2], &ok2);
+            const double x2 = c.toDouble(t[3], &ok3);
+            const double y2 = c.toDouble(t[4], &ok4);
+            if (!ok1 || !ok2 || !ok3 || !ok4) continue;
+
+            Wall::MirrorType mt = Wall::Flat;
+            Wall::SphericalType st = Wall::Concave;
+            mirrorTypeFromString(t[5], mt);
+            sphericalTypeFromString(t[6], st);
+            const double radius = c.toDouble(t[7], &okR);
+
+            WallData wd;
+            wd.p1 = QPointF(x1, y1);
+            wd.p2 = QPointF(x2, y2);
+            wd.mirrorType = mt;
+            wd.sphericalType = st;
+            wd.radius = okR ? radius : 0.0;
+
+            if (t.size() >= 11) {
+                bool okHas = false, okCx = false, okCy = false;
+                const int has = t[8].toInt(&okHas);
+                const double cx = c.toDouble(t[9], &okCx);
+                const double cy = c.toDouble(t[10], &okCy);
+                if (okHas && has != 0 && okCx && okCy) {
+                    wd.hasRoomCenter = true;
+                    wd.roomCenter = QPointF(cx, cy);
+                }
+            }
+
+            wallData.push_back(wd);
+            continue;
+        }
+
+        const int eq = line.indexOf('=');
+        if (eq <= 0) continue;
+        const QString key = line.left(eq).trimmed();
+        const QString value = line.mid(eq + 1).trimmed();
+        if (key == "creationMode") {
+            const QString v = value.toLower();
+            loadedMode = (v == "regularpolygon") ? RegularPolygon : DrawByClick;
+        } else if (key == "roomCompleted") {
+            loadedRoomCompleted = (value.toInt() != 0);
+            loadedRoomCompletedSpecified = true;
+        } else if (key == "regularWallsCount") {
+            loadedRegularWallsCount = value.toInt();
+        } else if (key == "regularPolygonScale") {
+            loadedRegularPolygonScale = value.toInt();
+        } else if (key == "animationIntervalMs") {
+            loadedAnimationIntervalMs = value.toInt();
+        } else if (key == "rayLifetimeMs") {
+            loadedRayLifetimeMs = value.toInt();
+        } else if (key == "rayStart") {
+            const QStringList t = value.split(QRegularExpression("\\s+"), Qt::SkipEmptyParts);
+            if (t.size() >= 3) {
+                bool okHas = false, okX = false, okY = false;
+                const int has = t[0].toInt(&okHas);
+                const double x = c.toDouble(t[1], &okX);
+                const double y = c.toDouble(t[2], &okY);
+                if (okHas && has != 0 && okX && okY) {
+                    loadedHasRayStart = true;
+                    loadedRayStart = QPointF(x, y);
+                } else {
+                    loadedHasRayStart = false;
+                }
+            }
+        } else if (key == "currentAngleDeg") {
+            bool ok = false;
+            const double a = c.toDouble(value, &ok);
+            if (ok) loadedAngleDeg = a;
+        } else if (key == "zoomFactor") {
+            bool ok = false;
+            const double z = c.toDouble(value, &ok);
+            if (ok) loadedZoom = z;
+        } else if (key == "cameraCenter") {
+            const QStringList t = value.split(QRegularExpression("\\s+"), Qt::SkipEmptyParts);
+            if (t.size() >= 2) {
+                bool okX = false, okY = false;
+                const double x = c.toDouble(t[0], &okX);
+                const double y = c.toDouble(t[1], &okY);
+                if (okX && okY) loadedCameraCenter = QPointF(x, y);
+            }
+        }
+    }
+
+    if (wallData.isEmpty()) {
+        QMessageBox::warning(this, "Load Experiment", "No walls found in file:\n" + inName);
+        return;
+    }
+
+    // Apply loaded state
+    clearRay();
+    clearRoom();
+    setRoomCreationMode(loadedMode);
+
+    m_regularWallsCount = qBound(4, loadedRegularWallsCount, 200);
+    m_regularPolygonScale = qBound(1, loadedRegularPolygonScale, 200);
+    m_animationIntervalMs = qMax(20, loadedAnimationIntervalMs);
+    m_rayLifetimeMs = qMax(0, loadedRayLifetimeMs);
+
+    m_walls.reserve(wallData.size());
+    m_tempPoints.clear();
+    m_tempPoints.reserve(wallData.size());
+
+    for (const auto& wd : wallData) {
+        Wall* w = new Wall(wd.p1, wd.p2);
+        w->setMirrorType(wd.mirrorType);
+        w->setSphericalType(wd.sphericalType);
+        if (wd.radius > 0.0) w->setRadius(wd.radius);
+        if (wd.hasRoomCenter) w->setRoomCenter(wd.roomCenter);
+        m_walls.append(w);
+        m_tempPoints.append(wd.p1);
+    }
+
+    // Ensure walls have a room center (needed for consistent spherical orientation).
+    if (!m_walls.isEmpty()) {
+        const QPointF centroid = computeCentroid(m_tempPoints);
+        for (Wall* w : m_walls) {
+            if (!w->hasRoomCenter()) w->setRoomCenter(centroid);
+        }
+    }
+
+    if (m_walls.size() >= 4) {
+        m_roomCompleted = loadedRoomCompletedSpecified ? loadedRoomCompleted : true;
+    } else {
+        m_roomCompleted = false;
+    }
+
+    m_rayStartPoint = loadedHasRayStart ? loadedRayStart : QPointF();
+    m_currentAngle = loadedAngleDeg;
+    m_selectingStartPoint = false;
+    m_selectingAngle = false;
+    m_zoomFactor = qBound(kMinZoom, loadedZoom, kMaxZoom);
+    m_cameraCenter = loadedCameraCenter;
+    m_cameraInitialized = true;
+    updateViewTransform();
+
+    if (!m_rayStartPoint.isNull()) {
+        m_angleSelectionPoint = m_rayStartPoint + calculateDirectionVector(m_currentAngle) * 50.0;
+    } else {
+        m_angleSelectionPoint = QPointF();
+    }
+
+    emit angleUpdated(m_currentAngle);
+    update();
 }
 
 void MirrorRoom::advanceRayAnimation()
@@ -755,4 +1053,3 @@ void MirrorRoom::rebuildSegmentDurations()
         m_segmentDurations.append(duration);
     }
 }
-

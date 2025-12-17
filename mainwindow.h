@@ -1,4 +1,6 @@
-﻿#ifndef MAINWINDOW_H
+﻿// MainWindow: top-level UI class.
+
+#ifndef MAINWINDOW_H
 #define MAINWINDOW_H
 
 #include <QMainWindow>
@@ -66,8 +68,7 @@ private:
     QPushButton *m_clearRoomBtn;
 
     int m_currentWallIndex;
+    bool m_simulationRunning {false};
 };
 
 #endif // MAINWINDOW_H
-
-

@@ -1,4 +1,6 @@
-﻿#include "Intersections.h"
+﻿// Intersections: geometric intersection routines (segments, lines, circles).
+
+#include "Intersections.h"
 
 namespace {
 template <typename LineLike1, typename LineLike2>

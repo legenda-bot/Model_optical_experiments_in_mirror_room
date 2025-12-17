@@ -1,3 +1,5 @@
+// BackendWall: backend/persistence model of a wall.
+
 #pragma once
 #ifndef BACKEND_WALL_H
 #define BACKEND_WALL_H

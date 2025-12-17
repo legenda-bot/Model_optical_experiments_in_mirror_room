@@ -1,3 +1,5 @@
+// MirrorRoom: owns the room geometry and orchestrates rendering/interaction.
+
 #ifndef MIRRORROOM_H
 #define MIRRORROOM_H
 

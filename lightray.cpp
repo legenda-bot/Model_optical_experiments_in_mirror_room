@@ -1,4 +1,6 @@
 #include "lightray.h"
+// LightRay: ray tracing through the mirror room (next hit + reflection).
+
 #include <QPainter>
 #include <QDebug>
 #include <cmath>
@@ -8,6 +10,9 @@ namespace {
 bool pointOnArcHelper(const QPointF& center, const QPointF& a, const QPointF& b,
                       const QPointF& candidate, bool allowMajor)
 {
+    // Проверка "точка candidate лежит на дуге окружности между a и b".
+    // allowMajor=true позволяет и большую дугу (использовалось в старой логике),
+    // сейчас для согласованности с отрисовкой мы в основном используем малую дугу.
     auto toAngle = [](const QPointF& p) { return std::atan2(p.y(), p.x()); };
     auto normAngle = [](double ang) {
         const double twoPi = 2.0 * M_PI;
@@ -37,7 +42,8 @@ bool pointOnArcHelper(const QPointF& center, const QPointF& a, const QPointF& b,
         majorSpan = (2.0 * M_PI) - arcSpan;
     }
     double candSpan = angleDiff(angA, angC);
-    constexpr double kArcEps = 1e-4;
+    // Angle tolerance in radians; slightly relaxed to keep endpoint hits stable.
+    constexpr double kArcEps = 1e-3;
     if (!allowMajor) {
         return candSpan <= arcSpan + kArcEps;
     }
@@ -58,6 +64,11 @@ struct SphericalGeom {
 
 bool computeSphericalGeom(const Wall* wall, SphericalGeom& out)
 {
+    // Геометрия сферической стены для трассировки луча.
+    // Должна совпадать с логикой отрисовки в wall.cpp:
+    // - дуга задаётся концами хорды и радиусом,
+    // - сторона дуги определяется roomCenter и типом Concave/Convex,
+    // - малая дуга лежит на стороне, противоположной центру окружности.
     if (!wall || wall->mirrorType() != Wall::Spherical) return false;
     const QLineF chord = wall->line();
     const double dx = chord.dx();
@@ -94,8 +105,10 @@ bool computeSphericalGeom(const Wall* wall, SphericalGeom& out)
 
 bool sphericalArcContainsPoint(const Wall* wall, const SphericalGeom& g, const QPointF& p)
 {
+    // Проверка попадания точки p на дугу сферической стены.
+    // Особый случай: R == |chord|/2 => полуокружность, там удобнее проверять полуплоскость.
     const QLineF chord = wall->line();
-    constexpr double kArcEps = 1e-4;
+    constexpr double kArcEps = 1e-3;
 
     // Special case: R == |chord|/2 => semicircle, direction is ambiguous from angles alone.
     // Select the half-plane by bulge direction.
@@ -117,8 +130,25 @@ LightRay::LightRay(const QPointF& startPoint, double startAngle, const QVector<W
     calculatePath();
 }
 
+void LightRay::draw(QPainter& painter) const
+{
+    if (m_path.size() < 2) return;
+
+    painter.save();
+    painter.setPen(QPen(Qt::yellow, 3, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
+    for (int i = 1; i < m_path.size(); ++i) {
+        painter.drawLine(m_path[i - 1], m_path[i]);
+    }
+    painter.restore();
+}
+
 void LightRay::calculatePath(int maxReflections)
 {
+    // Основной цикл трассировки:
+    // 1) ищем ближайшую стену по направлению луча,
+    // 2) добавляем точку пересечения,
+    // 3) отражаем направление относительно нормали (для дуги — нормаль окружности),
+    // 4) сдвигаем стартовую точку чуть вперёд, чтобы не "залипать" на той же стене.
     m_path.clear();
     m_path.append(m_startPoint);
 
@@ -143,7 +173,9 @@ void LightRay::calculatePath(int maxReflections)
         currentAngle = newAngle;
         lastWall = nextWall;
 
-        constexpr double kStepAfterHit = 0.05;
+        // Nudge the ray origin a tiny amount to avoid immediate self-intersections without
+        // "jumping over" nearby geometry (important when an arc and a wall are very close).
+        constexpr double kStepAfterHit = 1e-3;
         QPointF forward(std::cos(newAngle), std::sin(newAngle));
         currentPoint = intersection + forward * kStepAfterHit;
     }
@@ -152,6 +184,12 @@ void LightRay::calculatePath(int maxReflections)
 const Wall* LightRay::findNextWall(const QPointF& currentPoint, double currentAngle,
                                    QPointF& intersection, const Wall* skipWall) const
 {
+    // Поиск следующей стенки:
+    // - Flat: пересечение луча с отрезком
+    // - Spherical: пересечение луча с окружностью + фильтр "точка на дуге"
+    //
+    // Важно: окружность даёт 2 пересечения (t1, t2). Мы выбираем ближайшее положительное,
+    // которое действительно лежит на дуге (иначе луч может "пролететь" дугу).
     const Wall* closestWall = nullptr;
     QPointF closestIntersection;
     double minDistance = std::numeric_limits<double>::max();
@@ -165,8 +203,9 @@ const Wall* LightRay::findNextWall(const QPointF& currentPoint, double currentAn
     QPointF dirUnit = (dirLen > 0.0) ? QPointF(direction.x() / dirLen, direction.y() / dirLen) : QPointF(1.0, 0.0);
 
     constexpr double kMinTravel = 1e-4;
-    constexpr double kSkipSameWallDistance = 0.05;
-    constexpr double kCornerMergeEps = 0.05;
+    // Keep these small: larger values can make rays "skip" through narrow gaps between walls/arcs.
+    constexpr double kSkipSameWallDistance = 1e-3;
+    constexpr double kCornerMergeEps = 1e-3;
     constexpr double kRayLength = 10000.0;
 
     for (const Wall* wall : m_walls) {
@@ -206,13 +245,23 @@ const Wall* LightRay::findNextWall(const QPointF& currentPoint, double currentAn
                 qDebug() << "[Sph] skip both t<=eps" << t1 << t2;
                 continue;
             }
+            // Важно: у окружности 2 пересечения. Берём ближайшее положительное,
+            // которое реально лежит на дуге (иначе луч может "пролететь" дугу).
             double tCandidate = std::numeric_limits<double>::max();
-            if (t1 > kMinTravel) tCandidate = t1;
-            if (t2 > kMinTravel && t2 < tCandidate) tCandidate = t2;
-
-            QPointF candidate = currentPoint + dirUnit * tCandidate;
-            if (!sphericalArcContainsPoint(wall, g, candidate)) {
-                qDebug() << "[Sph] skip off-arc" << candidate;
+            QPointF candidate;
+            auto consider = [&](double t) {
+                if (t <= kMinTravel) return;
+                const QPointF p = currentPoint + dirUnit * t;
+                if (!sphericalArcContainsPoint(wall, g, p)) return;
+                if (t < tCandidate) {
+                    tCandidate = t;
+                    candidate = p;
+                }
+            };
+            consider(t1);
+            consider(t2);
+            if (tCandidate == std::numeric_limits<double>::max()) {
+                qDebug() << "[Sph] skip: intersections not on arc";
                 continue;
             }
 
@@ -297,6 +346,14 @@ const Wall* LightRay::findNextWall(const QPointF& currentPoint, double currentAn
 QPointF LightRay::calculateReflection(const QPointF& currentPoint, double currentAngle,
                                       const Wall* wall, double& newAngle)
 {
+    // Отражение вектором:
+    // r = d - 2*(d·n)*n
+    //
+    // где d — единичный вектор направления луча до удара,
+    // n — единичная нормаль к поверхности в точке удара.
+    //
+    // Для Flat n — нормаль к отрезку.
+    // Для Spherical n — радиус-вектор от центра окружности к точке касания.
     QLineF wallLine = wall->line();
     double dx = wallLine.dx();
     double dy = wallLine.dy();

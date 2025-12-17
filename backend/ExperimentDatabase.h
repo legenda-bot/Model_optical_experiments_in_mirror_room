@@ -1,3 +1,5 @@
+// ExperimentDatabase: persistence API for experiments.
+
 #pragma once
 #ifndef BACKEND_EXPERIMENTDATABASE_H
 #define BACKEND_EXPERIMENTDATABASE_H

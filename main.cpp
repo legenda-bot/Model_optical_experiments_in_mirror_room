@@ -1,3 +1,5 @@
+// Application entry point (Qt).
+
 #include <QApplication>
 #include <QSurfaceFormat>
 #include "mainwindow.h"

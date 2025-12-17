@@ -1,4 +1,6 @@
-﻿#ifndef LIGHTRAY_H
+﻿// LightRay: computes and renders the reflected ray path for the current experiment.
+
+#ifndef LIGHTRAY_H
 #define LIGHTRAY_H
 
 #include <QPointF>
@@ -27,4 +29,3 @@ private:
 };
 
 #endif // LIGHTRAY_H
-

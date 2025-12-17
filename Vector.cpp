@@ -1,4 +1,6 @@
-﻿#include "Vector.h"
+﻿// Vector: 2D vector math helpers.
+
+#include "Vector.h"
 #include <cmath>
 
 Vector::Vector(long double x, long double y) : x_(x), y_(y) {}

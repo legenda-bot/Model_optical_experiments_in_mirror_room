@@ -1,3 +1,5 @@
+// BackendPolygon: non-UI polygon representation for persistence/computations.
+
 #include "BackendPolygon.h"
 
 bool BackendMirrorRoom::CheckCorrectness() const {

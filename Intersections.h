@@ -1,4 +1,6 @@
-﻿#pragma once
+﻿// Intersections: declarations for geometry intersection helpers.
+
+#pragma once
 #ifndef INTERSECTIONS_H
 #define INTERSECTIONS_H
 #include "Point.h"

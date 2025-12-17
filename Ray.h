@@ -1,4 +1,6 @@
-﻿#pragma once
+﻿// Ray: basic ray structure used for geometric computations.
+
+#pragma once
 #ifndef RAY_H
 #define RAY_H
 
@@ -26,4 +28,3 @@ private:
 Ray Shoot(const Ray& trajectory, const Line& wall);
 
 #endif // RAY_H;
-

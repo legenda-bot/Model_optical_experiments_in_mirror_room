@@ -1,4 +1,6 @@
-﻿#pragma once
+﻿// Circle: basic circle geometry type used for spherical mirror calculations.
+
+#pragma once
 #ifndef CIRCLE_H
 #define CIRCLE_H
 
@@ -29,4 +31,3 @@ bool IsIntersection(const Circle& circle, const Line& line);
 bool IsIntersection(const Line& line, const Circle& circle);
 bool IsIntersection(const Circle& first_circle, const Circle& second_circle);
 #endif // CIRCLE_H
-

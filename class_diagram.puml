@@ -1,3 +1,5 @@
+' Class diagram for the modelation_of_mirrors project.
+
 @startuml
 "Point" <<data>> {
   - long double x_

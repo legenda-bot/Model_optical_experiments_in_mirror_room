@@ -1,4 +1,6 @@
-﻿#include "Arc.h"
+﻿// Arc: circular arc geometry helpers used by the mirror room model.
+
+#include "Arc.h"
 #include <cmath>
 
 Arc::Arc(const Point& start_point, const Point& middle_point, const Point& end_point)

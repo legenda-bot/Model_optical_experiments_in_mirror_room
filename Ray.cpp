@@ -1,4 +1,6 @@
-﻿#include "Ray.h"
+﻿// Ray: ray primitive (origin + direction) used by intersection helpers.
+
+#include "Ray.h"
 #include <cmath>
 
 Ray::Ray(const Point& vertex, const Point& point_on_ray)

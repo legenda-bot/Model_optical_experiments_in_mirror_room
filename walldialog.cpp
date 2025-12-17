@@ -1,3 +1,5 @@
+// WallDialog: UI dialog for configuring a wall (type, radius, etc).
+
 #include "walldialog.h"
 #include <QGroupBox>
 #include <QFormLayout>
@@ -62,15 +64,15 @@ void WallDialog::setupUI()
 
     // Buttons
     QHBoxLayout* buttonLayout = new QHBoxLayout();
-    QPushButton* applyButton = new QPushButton("Apply");
-    QPushButton* okButton = new QPushButton("OK");
-    QPushButton* cancelButton = new QPushButton("Cancel");
+    m_applyButton = new QPushButton("Apply");
+    m_okButton = new QPushButton("OK");
+    m_cancelButton = new QPushButton("Cancel");
 
-    okButton->setDefault(true);
+    m_okButton->setDefault(true);
 
-    buttonLayout->addWidget(applyButton);
-    buttonLayout->addWidget(okButton);
-    buttonLayout->addWidget(cancelButton);
+    buttonLayout->addWidget(m_applyButton);
+    buttonLayout->addWidget(m_okButton);
+    buttonLayout->addWidget(m_cancelButton);
     mainLayout->addLayout(buttonLayout);
 
     // Set initial values from wall
@@ -93,9 +95,9 @@ void WallDialog::setupUI()
     connect(m_radiusSpinBox, QOverload<double>::of(&QDoubleSpinBox::valueChanged),
             this, &WallDialog::updateWallPreview);
 
-    connect(applyButton, &QPushButton::clicked, this, &WallDialog::applyChanges);
-    connect(okButton, &QPushButton::clicked, this, &QDialog::accept);
-    connect(cancelButton, &QPushButton::clicked, this, &QDialog::reject);
+    connect(m_applyButton, &QPushButton::clicked, this, &WallDialog::applyChanges);
+    connect(m_okButton, &QPushButton::clicked, this, &QDialog::accept);
+    connect(m_cancelButton, &QPushButton::clicked, this, &QDialog::reject);
 
     // Initial update
     onMirrorTypeChanged(m_wall->mirrorType());
@@ -112,14 +114,31 @@ void WallDialog::onMirrorTypeChanged(int index)
 
 void WallDialog::accept()
 {
+    if (!m_editingEnabled) {
+        // During simulation editing is disabled; OK behaves like Cancel.
+        QDialog::reject();
+        return;
+    }
     // Гарантированно применяем настройки при OK/Enter, даже если accept() вызывается не через кнопку.
     applyChanges();
     QDialog::accept();
 }
 
+void WallDialog::setEditingEnabled(bool enabled)
+{
+    m_editingEnabled = enabled;
+    if (m_mirrorTypeCombo) m_mirrorTypeCombo->setEnabled(enabled);
+    if (m_sphericalTypeCombo) m_sphericalTypeCombo->setEnabled(enabled && m_mirrorTypeCombo && m_mirrorTypeCombo->currentIndex() == Wall::Spherical);
+    if (m_radiusSpinBox) m_radiusSpinBox->setEnabled(enabled && m_mirrorTypeCombo && m_mirrorTypeCombo->currentIndex() == Wall::Spherical);
+    if (m_applyButton) m_applyButton->setEnabled(enabled);
+    if (m_okButton) m_okButton->setEnabled(enabled);
+    // Cancel stays enabled so user can close the dialog.
+}
+
 void WallDialog::applyChanges()
 {
     if (!m_wall) return;
+    if (!m_editingEnabled) return;
 
     const auto mirrorType = static_cast<Wall::MirrorType>(m_mirrorTypeCombo->currentIndex());
     const auto sphericalType = static_cast<Wall::SphericalType>(m_sphericalTypeCombo->currentIndex());

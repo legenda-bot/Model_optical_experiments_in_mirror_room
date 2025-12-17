@@ -1,4 +1,6 @@
-﻿#pragma once
+﻿// Line: simple 2D line representation and helpers.
+
+#pragma once
 #ifndef LINE_H
 #define LINE_H
 

@@ -1,4 +1,6 @@
-﻿#pragma once
+﻿// Polygon: room boundary polygon and related operations.
+
+#pragma once
 #ifndef POLYGON_H
 #define POLYGON_H
 
@@ -91,4 +93,3 @@ private:
 };
 
 #endif // POLYGON_H
-

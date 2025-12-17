@@ -1,3 +1,5 @@
+// Point: small 2D point helper class used across geometry code.
+
 #pragma once
 #ifndef POINT_H
 #define POINT_H

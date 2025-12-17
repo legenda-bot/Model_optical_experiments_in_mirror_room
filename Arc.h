@@ -1,4 +1,6 @@
-﻿#pragma once
+﻿// Arc: represents a circular arc defined by three points.
+
+#pragma once
 #ifndef ARC_H
 #define ARC_H
 

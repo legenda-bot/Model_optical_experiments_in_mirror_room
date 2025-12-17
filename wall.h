@@ -1,4 +1,6 @@
-﻿#ifndef WALL_H
+﻿// Wall: room boundary segment which can behave as a mirror (flat/spherical).
+
+#ifndef WALL_H
 #define WALL_H
 
 #include <QPointF>

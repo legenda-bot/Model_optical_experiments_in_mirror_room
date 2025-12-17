@@ -1,3 +1,5 @@
+// ExperimentDatabase: save/load experiments (room + ray parameters).
+
 #include "ExperimentDatabase.h"
 
 #include <stdexcept>

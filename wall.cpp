@@ -1,4 +1,6 @@
 #include "wall.h"
+// Wall: mirror/wall element (flat or spherical) with drawing and hit testing.
+
 #include <QPainter>
 #include <QPainterPath>
 #include <QFile>
@@ -33,6 +35,12 @@ void wallLog(const QString& msg)
 } // namespace
 
 namespace {
+// --- Сферическая стена (дуга) ---
+// В проекте "стена" хранится как хорда (отрезок) между p1 и p2.
+// Если стена сферическая, мы рисуем дугу окружности, проходящую через p1 и p2, с радиусом R.
+//
+// Важный факт: малая дуга (<= 180°) лежит на стороне, противоположной центру окружности.
+// Поэтому, чтобы дуга "смотрела" внутрь/наружу, центр окружности выбирается на противоположной стороне.
 struct SphericalGeom {
     QPointF center;
     QPointF mid;
@@ -67,7 +75,11 @@ SphericalGeom computeSphericalGeom(const Wall& wall)
         if (QPointF::dotProduct(baseNormal, toCenter) < 0) interiorNormal = -baseNormal;
     }
 
+    // desiredBulge — в какую сторону должна "выпучиваться" дуга:
+    // - Concave: внутрь комнаты
+    // - Convex: наружу комнаты
     const QPointF desiredBulge = (wall.sphericalType() == Wall::Concave) ? interiorNormal : -interiorNormal;
+    // Центр окружности берём на противоположной стороне (иначе малая дуга будет не там, где надо).
     const QPointF center = mid - desiredBulge * offset;
 
     g.center = center;
@@ -81,6 +93,8 @@ SphericalGeom computeSphericalGeom(const Wall& wall)
 
 bool pointOnMinorArc(const QPointF& center, const QPointF& a, const QPointF& b, const QPointF& candidate)
 {
+    // Проверка "точка лежит на малой дуге между a и b".
+    // Используется для кликов/прилипания к дуге сферической стены.
     auto toAngle = [](const QPointF& p) { return std::atan2(p.y(), p.x()); };
     auto normAngle = [](double ang) {
         const double twoPi = 2.0 * M_PI;
@@ -109,12 +123,17 @@ bool pointOnMinorArc(const QPointF& center, const QPointF& a, const QPointF& b, 
         arcSpan = angleDiff(angA, angB);
     }
     const double candSpan = angleDiff(angA, angC);
-    constexpr double kArcEps = 1e-4;
+    constexpr double kArcEps = 1e-3;
     return candSpan <= arcSpan + kArcEps;
 }
 
 QPointF closestPointOnSphericalArc(const Wall& wall, const QPointF& point)
 {
+    // Возвращает ближайшую точку на дуге сферической стены к произвольной точке point.
+    // Алгоритм:
+    // 1) проецируем point на окружность (вдоль радиуса от центра),
+    // 2) если полученная точка лежит на дуге — это ответ,
+    // 3) иначе ближайшая точка будет одним из концов хорды.
     const auto g = computeSphericalGeom(wall);
     const QLineF chord = wall.line();
     if (g.chordLen <= 1e-9 || g.radius <= 1e-9) {
@@ -355,6 +374,9 @@ QPointF Wall::reflectPoint(const QPointF& point) const
 
 double Wall::distanceToPoint(const QPointF& point) const
 {
+    // Используется для выбора стены кликом.
+    // Для сферической стены считаем расстояние как min(до хорды, до дуги),
+    // чтобы клик по дуге тоже работал.
     const double dChord = distancePointToSegment(point, m_line);
     if (m_mirrorType != Spherical) {
         return dChord;

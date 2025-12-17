@@ -1,3 +1,5 @@
+// BackendPolygon: data model for polygon geometry used by save/load.
+
 #pragma once
 #ifndef BACKEND_POLYGON_H
 #define BACKEND_POLYGON_H

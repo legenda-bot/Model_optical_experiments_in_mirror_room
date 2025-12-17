@@ -1,4 +1,6 @@
-﻿#include "Circle.h"
+﻿// Circle: circle geometry primitives (center/radius and related helpers).
+
+#include "Circle.h"
 #include <cmath>
 
 Circle::Circle(const Point& center, long double radius)

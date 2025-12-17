@@ -1,3 +1,5 @@
+// BackendWall: serializable wall representation (type, radius, endpoints).
+
 #include "BackendWall.h"
 
 BackendWall::BackendWall(const Arc& arc)
