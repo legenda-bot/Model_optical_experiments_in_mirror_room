@@ -19,8 +19,12 @@ long double Vector::SquaredLength() const {
 }
 
 std::pair<long double, long double> Vector::GetCoefficients(const Vector& first_basis, const Vector& second_basis) const {
+    // Представляем текущий вектор v в базисе (b1, b2):
+    // v = alpha * b1 + beta * b2.
+    // Решаем 2x2 через определитель. Здесь operator* — это псевдоскаляр (векторное произведение) в 2D.
     long double determinant = first_basis * second_basis;
-    if (determinant == 0) {
+    constexpr long double kEps = 1e-12L;
+    if (std::fabsl(determinant) <= kEps) {
         return { 0, 0 }; // Базисные векторы коллинеарны
     }
 

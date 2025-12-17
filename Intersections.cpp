@@ -5,6 +5,9 @@
 namespace {
 template <typename LineLike1, typename LineLike2>
 bool LineLine(const LineLike1& first, const LineLike2& second) {
+    // Унифицированная проверка пересечения "линейных" примитивов:
+    // переводим оба объекта в бесконечные прямые, находим точку пересечения,
+    // затем проверяем принадлежность этой точки каждому примитиву (отрезок/луч/прямая).
     Line first_main = first.ToLine();
     Line second_main = second.ToLine();
     Point intersection = GetIntersection(first_main, second_main);
@@ -13,6 +16,8 @@ bool LineLine(const LineLike1& first, const LineLike2& second) {
 
 template <typename LineLike, typename CircleLike>
 bool LineCircle(const LineLike& line, const CircleLike& circle) {
+    // Пересечение линия/окружность: находим 0/1/2 точки пересечения бесконечных объектов,
+    // затем отфильтровываем по принадлежности исходным ограниченным фигурам (отрезок/дуга/луч).
     Line main_line = line.ToLine();
     Circle main_circle = circle.ToCircle();
 
@@ -24,6 +29,8 @@ bool LineCircle(const LineLike& line, const CircleLike& circle) {
 
 template <typename CircleLike1, typename CircleLike2>
 bool CircleCircle(const CircleLike1& first, const CircleLike2& second) {
+    // Пересечение окружностей/дуг: считаем пересечение окружностей, затем проверяем,
+    // что хотя бы одна точка принадлежит обеим фигурам с учетом ограничений дуги.
     Circle main_first = first.ToCircle();
     Circle main_second = second.ToCircle();
 
@@ -43,6 +50,8 @@ Point IntersectionLineLine(const LineLike1& first, const LineLike2& second) {
 
 template <typename LineLike, typename CircleLike>
 std::pair<Point, Point> IntersectionLineCircle(const LineLike& line, const CircleLike& circle) {
+    // Возвращаем пару пересечений, но "затираем" те, что не принадлежат ограниченным фигурам.
+    // Это удобный формат для дальнейшего выбора "ближайшей" точки на луче.
     Line main_line = line.ToLine();
     Circle main_circle = circle.ToCircle();
     std::pair<Point, Point> intersections = GetIntersection(main_line, main_circle);
@@ -76,6 +85,10 @@ std::pair<Point, Point> IntersectionCircleCircle(const CircleLike1& first, const
 
 template <typename CircleLike>
 Ray ShootCircle(const Ray& trajectory, const CircleLike& wall) {
+    // Отражение от окружности/дуги:
+    // 1) находим ближайшую точку пересечения луча с окружностью,
+    // 2) строим касательную в точке касания,
+    // 3) отражаем луч относительно касательной (эквивалентно отражению относительно нормали окружности).
     if (!LineCircle(trajectory, wall)) {
         return trajectory;
     }
@@ -90,7 +103,13 @@ Ray ShootCircle(const Ray& trajectory, const CircleLike& wall) {
 
 template <typename LineLike>
 Ray ShootLine(const Ray& trajectory, const LineLike& wall) {
+    // Отражение от "линии" (прямая/отрезок): сначала убеждаемся, что есть пересечение,
+    // и что точка пересечения лежит "впереди" по лучу.
     if (!LineLine(trajectory.ToLine(), wall)) {
+        return trajectory;
+    }
+    const Point intersection = GetIntersection(trajectory.ToLine(), wall.ToLine());
+    if (!trajectory.IsPointIn(intersection)) {
         return trajectory;
     }
     return Shoot(trajectory, wall.ToLine());

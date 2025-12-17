@@ -21,11 +21,6 @@ private:
     double m_startAngle;
     QVector<Wall*> m_walls;
     QVector<QPointF> m_path;
-
-    QPointF calculateReflection(const QPointF& currentPoint, double currentAngle,
-                                const Wall* wall, double& newAngle);
-    const Wall* findNextWall(const QPointF& currentPoint, double currentAngle,
-                             QPointF& intersection, const Wall* skipWall) const;
 };
 
 #endif // LIGHTRAY_H

@@ -1,94 +1,180 @@
-' Class diagram for the modelation_of_mirrors project.
-
 @startuml
-"Point" <<data>> {
-  - long double x_
-  - long double y_
+title Class diagram — modelation_of_mirrors
+
+skinparam packageStyle rectangle
+skinparam classAttributeIconSize 0
+
+package "UI (Qt)" {
+  class MainWindow {
+    - MirrorRoom* m_mirrorRoom
+    - WallDialog* m_wallDialog
+  }
+
+  class MirrorRoom {
+    - QVector<Wall*> m_walls
+    - LightRay* m_currentRay
+    + startRayExperiment()
+    + saveExperiment()
+    + loadExperiment()
+  }
+
+  class WallDialog {
+    - Wall* m_wall
+  }
+
+  class Wall {
+    - QLineF m_line
+    - MirrorType m_mirrorType
+    - SphericalType m_sphericalType
+    - double m_radius
+    - QPointF m_roomCenter
+    + containsPoint()
+    + draw()
+    + distanceToPoint()
+  }
+
+  class LightRay {
+    - QPointF m_startPoint
+    - double m_startAngle
+    - QVector<Wall*> m_walls
+    - QVector<QPointF> m_path
+    + calculatePath()
+    + draw()
+  }
 }
 
-"Vector" {
-  - long double x_
-  - long double y_
-  + Length()
-  + SquaredLength()
-  + GetNormal()
+package "Geometry primitives (no Qt)" {
+  class Point <<data>> {
+    - long double x_
+    - long double y_
+  }
+
+  class Vector {
+    - long double x_
+    - long double y_
+    + Length()
+    + SquaredLength()
+    + GetNormal()
+    + GetCoefficients()
+  }
+
+  class Line {
+    - Point point_
+    - Vector direction_
+    + GetDirection()
+    + GetNormal()
+    + IsPointIn()
+    + GetDistToPoint()
+  }
+
+  class Segment {
+    - Point start_point_
+    - Vector direction_vector_
+    + IsPointIn()
+    + ToLine()
+  }
+
+  class Ray {
+    - Point vertex_
+    - Vector direction_
+    + IsPointIn()
+    + FirstOnRay()
+    + ToLine()
+  }
+
+  class Circle {
+    - Point center_
+    - long double radius_
+    + IsPointIn()
+    + GetTangentAtPoint()
+  }
+
+  class Arc {
+    - Point start_point_
+    - Point middle_point_
+    - Point end_point_
+    - Circle circle_
+    + IsPointIn()
+    + ToCircle()
+  }
+
+  class Intersections <<utility>> {
+    + GetIntersection*(...)
+    + LineIntersect*(...)
+    + CircleIntersect*(...)
+    + ShootBulletIn*(...)
+  }
 }
 
-"Line" {
-  - Point point_
-  - Vector direction_
-  + GetDirection()
+package "Backend (logic, no UI)" {
+  class BackendWall {
+    - Arc arc_
+    - Segment segment_
+    - bool type_
+    - Point start_
+    - Point end_
+    + IsPointIn()
+    + ReflectLight()
+    + GetType()
+    + GetEdges()
+  }
+
+  class BackendMirrorRoom {
+    - vector<BackendWall> walls_
+    - vector<Point> corners_
+    + CheckCorrectness()
+    + CalcCorners()
+    + AddWall()
+    + DeleteWall()
+    + FireBeam()
+  }
+
+  class ExperimentDatabase {
+    - map<string,int> names_
+    - vector<BackendMirrorRoom> rooms_
+    - vector<Ray> beams_
+    - vector<vector<Point>> trajectories_
+    + AddExperiment()
+    + ChangeExperiment()
+    + DeleteExperiment()
+    + GetExperiment()
+  }
 }
 
-"Segment" {
-  - Point start_point_
-  - Vector direction_vector_
-}
-
-"Ray" {
-  - Point vertex_
-  - Vector direction_
-}
-
-"Circle" {
-  - Point center_
-  - long double radius_
-}
-
-"Arc" {
-  - Point start_point_
-  - Point middle_point_
-  - Point end_point_
-  - Circle circle_
-}
-
-class Wall {
-  - QLineF m_line
-  - MirrorType m_mirrorType
-  - double m_radius
-  + containsPoint()
-  + draw()
-}
-
-class LightRay {
-  - QPointF m_startPoint
-  - double m_startAngle
-  - QVector<Wall*> m_walls
-  - QVector<QPointF> m_path
-  + calculatePath()
-  + draw()
-}
-
-class MirrorRoom {
-  - QVector<Wall*> m_walls
-  - LightRay* m_currentRay
-  + startRayExperiment()
-}
-
-class WallDialog {
-  - Wall* m_wall
-}
-
-class MainWindow {
-  - MirrorRoom* m_mirrorRoom
-  - WallDialog* m_wallDialog
-}
-
-'Relationships'
-Vector --> Point : constructs from
-Line --> Point : has
-Line --> Vector : has
-Segment --> Point : start/end
-Segment --> Vector : direction
-Ray --> Point : vertex
-Ray --> Vector : direction
-Circle --> Point : center
-Arc --> Circle : belongs to
-MirrorRoom *-- Wall : contains
-MirrorRoom o-- LightRay : uses
+' UI wiring
 MainWindow --> MirrorRoom : controls
 MainWindow --> WallDialog : opens
 WallDialog --> Wall : edits
-LightRay --> Wall : references
+MirrorRoom *-- Wall : contains
+MirrorRoom o-- LightRay : uses
+LightRay --> Wall : reads
+
+' Backend integration: LightRay delegates ray tracing to backend
+LightRay ..> BackendMirrorRoom : builds & calls FireBeam()
+LightRay ..> BackendWall : converts Wall -> BackendWall
+
+' Backend uses geometry primitives
+BackendMirrorRoom *-- BackendWall : contains
+BackendMirrorRoom ..> Ray : traces
+BackendMirrorRoom ..> Point : outputs path
+BackendWall ..> Segment
+BackendWall ..> Arc
+BackendWall ..> Intersections : reflect / intersections
+
+' Primitive relationships
+Vector --> Point : from Point
+Line --> Point
+Line --> Vector
+Segment --> Point
+Segment --> Vector
+Ray --> Point
+Ray --> Vector
+Circle --> Point
+Arc --> Circle
+Intersections ..> Line
+Intersections ..> Segment
+Intersections ..> Ray
+Intersections ..> Circle
+Intersections ..> Arc
 
 @enduml

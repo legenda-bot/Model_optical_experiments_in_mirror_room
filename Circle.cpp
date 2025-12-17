@@ -25,12 +25,15 @@ Circle::Circle(const Point& a, const Point& b, const Point& c)       {
 
     long double G = 2 * (A * (y3 - y2) - B * (x3 - x2));
 
-    if (G == 0) {
+    constexpr long double kEps = 1e-12L;
+    if (std::fabsl(G) <= kEps) {
         // Точки коллинеарны - устанавливаем произвольные значения
+        // (геометрически окружность не определена однозначно).
         center_ = a;
         radius_ = 1;
     }
     else {
+        // Центр (Ux, Uy) по формуле из системы уравнений |U-A|^2 = |U-B|^2 = |U-C|^2.
         long double center_x = (D * E - B * F) / G;
         long double center_y = (A * F - C * E) / G;
         center_ = Point(center_x, center_y);
@@ -45,7 +48,11 @@ Point Circle::GetCenter() const {
 bool Circle::IsPointIn(const Point& point) const {
     // Точка лежит на окружности, если расстояние до центра равно радиусу
     Vector to_center(point - center_);
-    return to_center.SquaredLength() == radius_ * radius_;
+    const long double dist2 = to_center.SquaredLength();
+    const long double r2 = radius_ * radius_;
+    constexpr long double kEps = 1e-6L;
+    // Сравниваем по квадратам, чтобы не делать лишний sqrt, и с относительным допуском.
+    return std::fabsl(dist2 - r2) <= kEps * (1.0L + std::max(dist2, r2));
 }
 
 Line Circle::GetTangentAtPoint(const Point& point) const {
@@ -60,18 +67,26 @@ long double Circle::GetRadius() const {
 }
 
 std::pair<Point, Point> GetIntersection(const Circle& circle, const Line& line) {
+    // Пересечение окружности и прямой:
+    // 1) находим проекцию центра на прямую (перпендикуляр),
+    // 2) если расстояние до прямой > R — пересечения нет,
+    // 3) иначе двигаемся вдоль направления прямой на ±sqrt(R^2 - d^2).
     Line normal_line = Line(circle.GetCenter(), line.GetNormal());
     Point intersection = GetIntersection(normal_line, line);
     Vector center_to_line = intersection - circle.GetCenter();
 
-    if (center_to_line.SquaredLength() > circle.GetRadius() * circle.GetRadius()) {
+    const long double dist2 = center_to_line.SquaredLength();
+    const long double r2 = circle.GetRadius() * circle.GetRadius();
+    constexpr long double kEps = 1e-6L;
+    if (dist2 > r2 + kEps * (1.0L + r2)) {
         return { {0, 0}, {0, 0} }; // return a random value
     }
 
     Vector line_vec = line.GetDirection();
-    line_vec.SetLength(sqrt(circle.GetRadius() * circle.GetRadius() - center_to_line.SquaredLength()));
+    const long double underSqrt = std::max(0.0L, r2 - dist2);
+    line_vec.SetLength(std::sqrt(underSqrt));
 
-    return { (center_to_line + line_vec).ToPoint(), (center_to_line - line_vec).ToPoint()};
+    return { (intersection + line_vec).ToPoint(), (intersection - line_vec).ToPoint() };
 }
 
 std::pair<Point, Point> GetIntersection(const Line& line, const Circle& circle) {
@@ -96,7 +111,8 @@ std::pair<Point, Point> GetIntersection(const Circle& circle1, const Circle& cir
     }
 
     // Случай совпадающих окружностей
-    if (distance == 0 && radius1 == radius2) {
+    constexpr long double kEps = 1e-12L;
+    if (std::fabsl(distance) <= kEps && std::fabsl(radius1 - radius2) <= kEps) {
         // Бесконечное количество точек пересечения - возвращаем две произвольные
         return { Point(0, 0), Point(0, 0) };
     }
@@ -129,11 +145,17 @@ std::pair<Point, Point> GetIntersection(const Circle& circle1, const Circle& cir
 }
 
 bool IsIntersection(const Circle& circle, const Line& line) {
-    return(circle.GetRadius() <= line.GetDistToPoint(circle.GetCenter()));
+    const long double d = line.GetDistToPoint(circle.GetCenter());
+    constexpr long double kEps = 1e-9L;
+    // Есть пересечение, если расстояние от центра до прямой не больше радиуса.
+    return d <= circle.GetRadius() + kEps;
 }
 
 bool IsIntersection(const Line& line, const Circle& circle) {
-    return(circle.GetRadius() <= line.GetDistToPoint(circle.GetCenter()));
+    const long double d = line.GetDistToPoint(circle.GetCenter());
+    constexpr long double kEps = 1e-9L;
+    // Симметричный вариант проверки.
+    return d <= circle.GetRadius() + kEps;
 }
 
 bool IsIntersection(const Circle& first_circle, const Circle& second_circle) {

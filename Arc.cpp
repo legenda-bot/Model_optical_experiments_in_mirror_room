@@ -24,8 +24,9 @@ bool Arc::IsPointIn(const Point& point) const {
     Vector end_vector = end_point_ - center;
     Vector point_vector = point - center;
 
-    // Проверяем, что точка лежит между start и end через middle
-    // Используем векторные произведения для определения положения
+    // Проверяем, что точка лежит на "той же" части окружности, что и middle, между start и end.
+    // Идея: сравниваем ориентацию (знак псевдоскалярного произведения) относительно стартового
+    // и конечного направлений. Если point и middle по одну сторону — point принадлежит дуге.
 
     // Векторное произведение start->middle и start->point
     long double cross_start_middle = start_vector * middle_vector;
@@ -36,8 +37,9 @@ bool Arc::IsPointIn(const Point& point) const {
     long double cross_point_end = point_vector * end_vector;
 
     // Точка лежит на дуге, если она находится в том же секторе, что и средняя точка
-    bool same_side_as_middle_from_start = (cross_start_point * cross_start_middle >= 0);
-    bool same_side_as_middle_from_end = (cross_point_end * cross_middle_end >= 0);
+    constexpr long double kEps = 1e-9L;
+    bool same_side_as_middle_from_start = (cross_start_point * cross_start_middle >= -kEps);
+    bool same_side_as_middle_from_end = (cross_point_end * cross_middle_end >= -kEps);
 
     return same_side_as_middle_from_start && same_side_as_middle_from_end;
 }

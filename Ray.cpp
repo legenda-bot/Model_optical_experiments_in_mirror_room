@@ -29,8 +29,13 @@ bool Ray::IsPointIn(const Point& point) const {
     // Вектор от вершины до точки
     Vector to_point = point - vertex_;
 
-    // Проверяем коллинеарность и что точка лежит в направлении луча
-    return (direction_ * to_point == 0) && ((direction_ ^ to_point) >= 0);
+    // Проверяем коллинеарность (cross ≈ 0) и что точка лежит "впереди" вершины (dot >= 0).
+    // dot здесь — обычное скалярное произведение (operator^).
+    const long double cross = direction_ * to_point;
+    const long double dot = direction_ ^ to_point;
+    const long double scale = direction_.Length() * to_point.Length();
+    constexpr long double kEps = 1e-9L;
+    return (std::fabsl(cross) <= kEps * (1.0L + scale)) && (dot >= -kEps * (1.0L + scale));
 }
 
 Point Ray::GetVertex() const {
@@ -42,6 +47,8 @@ Vector Ray::GetDirection() const {
 }
 
 Point Ray::FirstOnRay(const Point& first_point, const Point& second_point) const {
+    // Выбираем точку, которая расположена ближе к вершине луча, но приоритетно среди тех,
+    // что действительно лежат на луче.
     bool first_on_ray = IsPointIn(first_point);
     bool second_on_ray = IsPointIn(second_point);
 
@@ -71,15 +78,24 @@ Line Ray::ToLine() const {
 
 Ray Shoot(const Ray& trajectory, const Line& wall) { // it is actually main function in all project
 
-    Vector reflecting = wall.GetDirection();
-    Vector bullet = trajectory.GetDirection();
+    Vector incident = trajectory.GetDirection();
     Point intersection = GetIntersection(trajectory.ToLine(), wall);
-    
-    if (!trajectory.IsPointIn(intersection) && reflecting * bullet == 0) { // if there is no intersection
+
+    // If the intersection is not on the ray (e.g. behind the vertex), do not change direction.
+    if (!trajectory.IsPointIn(intersection)) {
         return trajectory;
     }
 
-    std::pair<long double, long double> odds = reflecting.GetCoefficients(bullet, reflecting.GetNormal());
-    Vector reflected = reflecting + reflecting.GetNormal() * 2 * odds.second;
+    // Отражение направления относительно прямой:
+    // берём нормаль n к стене и отражаем вектор v по формуле
+    // v' = v - 2*(v·n)/(n·n) * n.
+    Vector normal = wall.GetNormal();
+    const long double n2 = normal.SquaredLength();
+    if (n2 <= 0) {
+        return trajectory;
+    }
+
+    const long double dot = incident ^ normal;
+    Vector reflected = incident - normal * (2.0L * dot / n2);
     return { intersection, reflected };
 }

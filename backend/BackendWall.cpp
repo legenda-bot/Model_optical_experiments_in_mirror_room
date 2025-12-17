@@ -26,8 +26,11 @@ BackendWall::BackendWall(const Point& first, const Point& second)
 BackendWall::BackendWall(const Point& first, const Point& second, const Point& third)
     : arc_(Point(0, 0), Point(1, 1), Point(1, 0)),
       segment_(Point(0, 0), Point(1, 1)),
+      // type_=true если точки не коллинеарны, тогда стенка — дуга (окружность по 3 точкам).
+      // Здесь operator* для Vector — 2D-векторное произведение; оно равно 0 для коллинеарных направлений.
       type_((first - second) * (first - third) != 0) {
     if (!type_) { // all points on one line
+        // Если три точки лежат на одной прямой — выбираем в качестве сегмента две крайние точки.
         if (Segment(first, second).IsPointIn(third)) {
             *this = BackendWall(first, second);
             return;
@@ -39,6 +42,7 @@ BackendWall::BackendWall(const Point& first, const Point& second, const Point& t
         *this = BackendWall(second, third);
         return;
     }
+        // Неколлинеарные точки задают единственную окружность → берём дугу.
         arc_ = Arc(first, second, third);
         start_ = arc_.GetStartPoint();
         end_ = arc_.GetEndPoint();
@@ -52,6 +56,9 @@ bool BackendWall::IsPointIn(const Point& point) const {
 }
 
 Ray BackendWall::ReflectLight(const Ray& ray) const {
+    // Отражение луча:
+    // - для дуги отражаем от окружности (через касательную в точке удара),
+    // - для сегмента отражаем относительно прямой сегмента.
     if (type_) {
         return ShootBulletInCircle(ray, arc_);
     }
@@ -117,7 +124,16 @@ std::pair<Point, Point> IntersectWalls(const BackendWall& first, const BackendWa
 Point GetFirstIntersectionOfRayAndWall(const Ray& ray, const BackendWall& wall) { // apex excluded
     if (wall.GetType() == "arc") {
         auto intersections = GetIntersectionLineAndCircle(ray, wall.GetArc());
-        return ray.FirstOnRay(intersections.first, intersections.second);
+        // Из двух точек пересечения выбираем ту, что расположена первой по направлению луча.
+        Point candidate = ray.FirstOnRay(intersections.first, intersections.second);
+        if (!ray.IsPointIn(candidate) || !wall.IsPointIn(candidate)) {
+            return ray.GetVertex();
+        }
+        return candidate;
     }
-    return GetIntersectionLineAndLine(ray, wall.GetSegment());
+    Point intersection = GetIntersectionLineAndLine(ray, wall.GetSegment());
+    if (!ray.IsPointIn(intersection) || !wall.IsPointIn(intersection)) {
+        return ray.GetVertex();
+    }
+    return intersection;
 }

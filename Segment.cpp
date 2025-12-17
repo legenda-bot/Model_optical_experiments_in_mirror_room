@@ -23,12 +23,15 @@ bool Segment::IsPointIn(const Point& point) const {
     // Проверяем, что точка находится между началом и концом отрезка
     Vector to_point = point - start_point_;
 
-    // Проверяем коллинеарность и что проекция находится в пределах отрезка
+    // Проверяем, что проекция точки на направление отрезка лежит в [0, |d|^2].
+    // dot_product = d · (point-start), segment_length_sq = |d|^2.
     long double dot_product = direction_vector_ ^ to_point;
     long double segment_length_sq = direction_vector_.SquaredLength();
 
     // Точка лежит на отрезке, если проекция между 0 и длиной отрезка
-    return dot_product >= 0 && dot_product <= segment_length_sq;
+    constexpr long double kEps = 1e-9L;
+    const long double slack = kEps * (1.0L + segment_length_sq);
+    return dot_product >= -slack && dot_product <= segment_length_sq + slack;
 }
 bool Segment:: operator == (const Segment& other) const {
     return start_point_ == other.start_point_ && direction_vector_ == other.direction_vector_;

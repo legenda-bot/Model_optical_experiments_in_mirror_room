@@ -6,6 +6,8 @@ bool BackendMirrorRoom::CheckCorrectness() const {
     if (size_ == 0) {
         return true;
     }
+    // Проверка корректности полигона из стен:
+    // хотим, чтобы стены образовывали один замкнутый цикл без "разветвлений".
     Point last_point = walls_[0].GetEdges().second;
     bool found_next = false;
     int current_next_wall = -1;
@@ -37,6 +39,7 @@ bool BackendMirrorRoom::CheckCorrectness() const {
 
 void BackendMirrorRoom::CalcCorners() {
     corners_.clear();
+    // Углы (вершины) — это точки пересечения пар стен, которые реально лежат на обеих стенах.
     for (int i = 0; i < size_; i++) {
         for (int j = i + 1; j < size_; j++) {
             if (DoWallsIntersect(walls_[i], walls_[j])) {
@@ -73,12 +76,15 @@ void BackendMirrorRoom::FireBeam(const Ray& beam, std::vector<Point>& points_on_
     points_on_path.clear();
     points_on_path.push_back(beam.GetVertex());
 
-    if (!CheckCorrectness()) {
-        throw std::logic_error("room is not designed correctly");
+    if (CheckCorrectness()) {
+        CalcCorners();
+    } else {
+        corners_.clear();
     }
 
-    CalcCorners();
-
+    // Основной цикл трассировки:
+    // на каждом шаге ищем ближайшее пересечение луча со всеми стенами (по направлению луча),
+    // добавляем точку удара, затем отражаем луч от найденной стены.
     Ray last_reflection = beam;
     for (int i = 1; i < number_of_points; i++) {
 
@@ -100,17 +106,17 @@ void BackendMirrorRoom::FireBeam(const Ray& beam, std::vector<Point>& points_on_
         }
 
         if (index_of_the_wall == -1) {
-            for (; i < number_of_points; i++) {
-                Vector direction = last_reflection.GetDirection();
-                direction.SetLength(100); // arbitrary length when beam exits the room
-                points_on_path.push_back((points_on_path[i - 1] + direction).ToPoint());
-            }
-            break;
+            // Если пересечений нет — считаем, что луч покинул комнату.
+            Vector direction = last_reflection.GetDirection();
+            direction.SetLength(10000); // arbitrary length when beam exits the room (for UI rendering)
+            points_on_path.push_back((points_on_path.back() + direction).ToPoint());
+            return;
         }
 
         points_on_path.push_back(general_closest);
 
         bool on_corner = false;
+        // Если попали ровно в вершину (пересечение стен), разворачиваем луч назад, чтобы не "застрять" в угле.
         for (const auto& corner : corners_) {
             if (general_closest == corner) {
                 on_corner = true;
@@ -121,6 +127,14 @@ void BackendMirrorRoom::FireBeam(const Ray& beam, std::vector<Point>& points_on_
             last_reflection = Ray(general_closest, -1 * last_reflection.GetDirection());
         } else {
             last_reflection = walls_[index_of_the_wall].ReflectLight(last_reflection);
+        }
+
+        // Nudge the ray origin forward a little to avoid re-hitting the same wall due to
+        // floating-point inaccuracies (especially on vertices and near-parallel hits).
+        Vector step = last_reflection.GetDirection();
+        if (step.SquaredLength() > 0) {
+            step.SetLength(1e-3L);
+            last_reflection = Ray((general_closest + step).ToPoint(), last_reflection.GetDirection());
         }
     }
 }

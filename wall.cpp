@@ -63,6 +63,10 @@ SphericalGeom computeSphericalGeom(const Wall& wall)
         return g;
     }
 
+    // Геометрия сферической стенки:
+    // задана хорда p1-p2 и радиус R. Центр окружности лежит на перпендикуляре к хорде
+    // через её середину на расстоянии offset = sqrt(R^2 - (L/2)^2), где L — длина хорды.
+    // Важно: R >= L/2, иначе окружность не проходит через концы хорды.
     const QPointF mid = (chord.p1() + chord.p2()) / 2.0;
     const double halfChord = chordLen * 0.5;
     const double radius = std::max(wall.radius(), halfChord);
@@ -78,8 +82,12 @@ SphericalGeom computeSphericalGeom(const Wall& wall)
     // desiredBulge — в какую сторону должна "выпучиваться" дуга:
     // - Concave: внутрь комнаты
     // - Convex: наружу комнаты
+    // Выбираем "выпуклость" дуги относительно центра комнаты:
+    // Concave — дуга смотрит внутрь комнаты, Convex — наружу.
     const QPointF desiredBulge = (wall.sphericalType() == Wall::Concave) ? interiorNormal : -interiorNormal;
     // Центр окружности берём на противоположной стороне (иначе малая дуга будет не там, где надо).
+    // Центр окружности находится на противоположной стороне хорды относительно bulge:
+    // center = mid - bulge * offset.
     const QPointF center = mid - desiredBulge * offset;
 
     g.center = center;
@@ -95,6 +103,9 @@ bool pointOnMinorArc(const QPointF& center, const QPointF& a, const QPointF& b, 
 {
     // Проверка "точка лежит на малой дуге между a и b".
     // Используется для кликов/прилипания к дуге сферической стены.
+    // Проверка принадлежности candidate меньшей дуге (minor arc) между a и b:
+    // считаем углы для a,b,candidate относительно center, нормализуем в [0, 2pi),
+    // берём минимальный угловой разлёт между a и b и проверяем, что candidate внутри.
     auto toAngle = [](const QPointF& p) { return std::atan2(p.y(), p.x()); };
     auto normAngle = [](double ang) {
         const double twoPi = 2.0 * M_PI;
@@ -140,12 +151,13 @@ QPointF closestPointOnSphericalArc(const Wall& wall, const QPointF& point)
         return chord.p1();
     }
 
-    // Project to circle
+    // Проецируем точку point на окружность (по направлению к/от центра).
+    // Это ближайшая точка на окружности, но она может не лежать на активной дуге.
     QPointF v = point - g.center;
     const double vLen = std::hypot(v.x(), v.y());
     QPointF onCircle = (vLen > 1e-9) ? (g.center + v * (g.radius / vLen)) : (g.center + g.desiredBulge * g.radius);
 
-    // Determine if the projected point lies on the active (minor) arc.
+    // Проверяем, что проекция лежит именно на выбранной (меньшей) дуге между концами хорды.
     bool onArc = false;
     if (std::abs(g.offset) < 1e-9) {
         // Semicircle: choose half-plane by bulge direction.
@@ -172,6 +184,8 @@ double distancePointToSegment(const QPointF& point, const QLineF& seg)
     double l2 = (B.x() - A.x())*(B.x() - A.x()) + (B.y() - A.y())*(B.y() - A.y());
     if (l2 == 0.0) return QLineF(point, A).length(); // A == B
 
+    // Находим параметр t проекции точки на отрезок:
+    // t = ((P-A)·(B-A)) / |B-A|^2, затем ограничиваем t в [0,1].
     double t = ((point.x() - A.x()) * (B.x() - A.x()) + (point.y() - A.y()) * (B.y() - A.y())) / l2;
     t = qMax(0.0, qMin(1.0, t)); // Clamp t to [0,1]
 

@@ -173,7 +173,8 @@ QGroupBox* MainWindow::createExperimentGroup()
     speedLayout->addWidget(new QLabel("Ray speed:"));
     m_speedSlider = new QSlider(Qt::Horizontal);
     m_speedSlider->setRange(100, 1000); // ms per segment
-    m_speedSlider->setValue(400);
+    // Inverted mapping: higher slider value => faster animation (smaller ms per segment).
+    m_speedSlider->setValue(700); // maps to 400ms effective
     speedLayout->addWidget(m_speedSlider);
     layout->addLayout(speedLayout);
 
@@ -191,9 +192,13 @@ QGroupBox* MainWindow::createExperimentGroup()
     connect(m_selectAngleBtn, &QPushButton::clicked, this, &MainWindow::onSelectAngleClicked);
     connect(m_angleSpin, QOverload<double>::of(&QDoubleSpinBox::valueChanged),
             this, &MainWindow::onAngleChanged);
-    connect(m_speedSlider, &QSlider::valueChanged, m_mirrorRoom, &MirrorRoom::setAnimationSpeed);
+    connect(m_speedSlider, &QSlider::valueChanged, this, [this](int value) {
+        const int min = m_speedSlider->minimum();
+        const int max = m_speedSlider->maximum();
+        m_mirrorRoom->setAnimationSpeed(min + max - value);
+    });
     connect(m_clearRayBtn, &QPushButton::clicked, m_mirrorRoom, &MirrorRoom::clearRay);
-    m_mirrorRoom->setAnimationSpeed(m_speedSlider->value());
+    m_mirrorRoom->setAnimationSpeed(m_speedSlider->minimum() + m_speedSlider->maximum() - m_speedSlider->value());
 
     return groupBox;
 }

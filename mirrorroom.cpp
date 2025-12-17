@@ -67,12 +67,15 @@ QPointF computeCentroid(const QVector<QPointF>& polygon)
     for (int i = 0; i < polygon.size(); ++i) {
         const QPointF& p0 = polygon[i];
         const QPointF& p1 = polygon[(i + 1) % polygon.size()];
+        // signed area contribution (2D "shoelace"): a = x0*y1 - x1*y0
         const double a = p0.x() * p1.y() - p1.x() * p0.y();
         signedArea += a;
+        // centroid numerator contribution; итоговая формула: C = (1/(3*A)) * Σ ( (p0+p1) * a )
         centroid += QPointF((p0.x() + p1.x()) * a, (p0.y() + p1.y()) * a);
     }
 
     if (std::abs(signedArea) > 1e-9) {
+        // A = signedArea/2, поэтому делим на (3*signedArea) вместо (6*A).
         centroid /= (3.0 * signedArea);
         return centroid;
     }
@@ -313,6 +316,11 @@ void MirrorRoom::mousePressEvent(QMouseEvent *event)
                 return;
             }
         } else {
+            if (m_tempPoints.size() >= 9) {
+                QMessageBox::warning(this, "Room Creation",
+                                     "Maximum is 9 points. Close the polygon by clicking near the first point.");
+                return;
+            }
             m_tempPoints.append(worldPos);
         }
         update();
@@ -397,13 +405,13 @@ double MirrorRoom::calculateAngle(const QPointF& start, const QPointF& end) cons
     double dx = line.dx();
     double dy = line.dy();
 
-    //        
+    // Угол направления (dx,dy) в радианах через atan2, диапазон (-pi, pi].
     double angleRad = atan2(dy, dx);
 
-    //      
+    // Переводим в градусы.
     double angleDeg = angleRad * 180.0 / M_PI;
 
-    //         [0, 360)
+    // Нормализуем в диапазон [0, 360).
     if (angleDeg < 0) {
         angleDeg += 360.0;
     }
@@ -413,10 +421,10 @@ double MirrorRoom::calculateAngle(const QPointF& start, const QPointF& end) cons
 
 QPointF MirrorRoom::calculateDirectionVector(double angle) const
 {
-    //        
+    // Единичный вектор направления по углу в градусах.
     double angleRad = qDegreesToRadians(angle);
 
-    //      
+    // (cos, sin) задаёт направление на единичной окружности.
     return QPointF(cos(angleRad), sin(angleRad));
 }
 
@@ -1044,6 +1052,8 @@ void MirrorRoom::rebuildSegmentDurations()
     }
     const auto& path = m_currentRay->path();
     if (path.size() < 2) return;
+    // Распределяем длительности по сегментам пропорционально длине:
+    // чтобы длинные сегменты занимали больше времени, а короткие — меньше, но с ограничениями.
     double baseLen = 150.0; // pixels that take exactly m_animationIntervalMs
     for (int i = 0; i < path.size() - 1; ++i) {
         double len = QLineF(path[i], path[i + 1]).length();
